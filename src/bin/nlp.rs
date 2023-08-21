@@ -49,6 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       let article_indices = identify_articles(&words);
       println!("articles: {:?}", article_indices);
 
+      let adjective_indices = identify_adjectives(&words);
+      println!("adjectives: {:?}", adjective_indices);
+
       next_pos = res.stream_position + 1;
     }
   }
@@ -71,31 +74,21 @@ fn identify_articles(sentence: &Vec<String>) -> Vec<usize> {
 fn identify_adjectives(sentence: &Vec<String>) -> Vec<String> {
   let mut adjectives = Vec::new();
 
-  for word in sentence.iter() {
-      let mut modified_word = word.clone();
+  for (index, word) in sentence.iter().enumerate() {
+      let word_lc = word.to_lowercase();
 
-      let last_char = modified_word.chars().last();
-      if let Some(c) = last_char {
-          if c == ',' || c == '.' || c == '!' || c == '?' {
-              let temp_word = &modified_word[..modified_word.len() - 1];
-              if temp_word.chars().all(char::is_alphabetic) {
-                  modified_word = temp_word.to_string();
-              }
-          }
-      }
-
-      let word_lc = modified_word.to_lowercase();
       if word_lc == "a" || word_lc == "an" || word_lc == "the" {
           continue;
       }
 
-      if modified_word.chars().all(char::is_alphabetic) {
-        let pos = sentence.iter().position(|x| *x == word).unwrap(); // Use borrowed reference *word
-        let next_word = sentence.get(pos + 1).unwrap_or(&String::new());
-        if next_word.chars().all(char::is_alphabetic) {
-            adjectives.push(modified_word);
-        }
-    }
+      if word.chars().all(|c| c.is_alphabetic()) {
+          if index + 1 < sentence.len() {
+              let next_word = &sentence[index + 1];
+              if next_word.chars().all(|c| c.is_alphabetic()) {
+                  adjectives.push(word.clone());
+              }
+          }
+      }
   }
 
   adjectives
