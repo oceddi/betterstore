@@ -36,20 +36,36 @@ impl <'stream> ReaderStream<'stream> {
     loop {
       let index_element = &self.index_entries[current];
       let chunk_path_str = format!("chunks/{}.chk", index_element.chunk_number);
+      println!("Reading from offset {}", index_element.offset);
+
       let chunk_events = LogChunk::stream_events_out(index_element.offset, chunk_path_str.as_str());
       let chunk_events = match chunk_events {
         Ok(ce) => ce,
         Err(error) => panic!("Problem opening chunk file: {:?}", error),
       };
 
-      for event  in chunk_events.iter().filter(|evn| evn.name == self.stream_name) {
-        let response = ReadStreamResponse {
-          event : event.payload.clone()
-        };
+      if self.stream_name == "$all" {
+        for event in chunk_events.iter() {
+          let response = ReadStreamResponse {
+            event : event.payload.clone(),
+            stream_position : event.id
+          };
 
-        // TODO: Handle send errors
-        let _ = tx_channel.send(Ok(response)).await;
-        current += 1;
+          // TODO: Handle send errors
+          let _ = tx_channel.send(Ok(response)).await;
+          current += 1;
+        }
+      } else {
+        for event in chunk_events.iter().filter(|evn| evn.name == self.stream_name) {
+          let response = ReadStreamResponse {
+            event : event.payload.clone(),
+            stream_position: event.id
+          };
+
+          // TODO: Handle send errors
+          let _ = tx_channel.send(Ok(response)).await;
+          current += 1;
+        }
       }
       if current > self.index_entries.len()-1 {
         break;

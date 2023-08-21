@@ -13,7 +13,6 @@ mod index;
 mod writer;
 mod reader;
 
-#[derive(Clone)]
 pub struct Engine {
   index   : Index,
   writer  : Writer
@@ -33,13 +32,19 @@ impl Engine {
     }
   }
 
-  pub fn append_events(&mut self, stream_name: String, events: Vec<String>) -> u64 {
-    // Returns next_id
-    self.writer.append_events(
-      self.index.borrow_mut(),
-      stream_name,
-      events
-    )
+  pub fn append_events(&mut self, stream_name: String, events: Vec<String>) -> Result<u64, String> {
+    // You can't append events to certain "reserved" stream names.
+    match stream_name.as_str() {
+      "$all" => Err(format!("Illegal stream_name parameter.")),
+      _ => {
+        // Returns next_id
+        Ok(self.writer.append_events(
+          self.index.borrow_mut(),
+          stream_name,
+          events
+        ))
+      }
+    }
   }
 
   pub async fn read_stream(&mut self, stream_name: String, stream_position: u64, tx_channel: Sender<Result<ReadStreamResponse, Status>>) {

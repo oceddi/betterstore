@@ -11,7 +11,7 @@ pub mod engine;
 
 // Define Actor Messages
 #[derive(Message, Debug)]
-#[rtype(result = "u64")]
+#[rtype(result = "Result<u64, String>")]
 pub struct AppendToStream {
   pub stream_name : String,
   pub events      : Vec<String>
@@ -52,9 +52,9 @@ impl Actor for BetterStoreActor {
 }
 
 impl Handler<AppendToStream> for BetterStoreActor {
-  type Result = u64;
+  type Result = Result<u64, String>;
 
-  fn handle(&mut self, msg: AppendToStream, _ctx: &mut Context<Self>) -> u64 {
+  fn handle(&mut self, msg: AppendToStream, _ctx: &mut Context<Self>) -> Result<u64, String> {
     let engine = self.engine.clone();
     let mut engine = engine.lock().unwrap();
     engine.append_events(

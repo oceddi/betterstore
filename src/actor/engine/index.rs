@@ -79,14 +79,20 @@ impl Index {
         highest_chunk_id = chunk_id;
 
         last_chunk       = Some(log_chunk);
-        next_id          = (event_info.get(event_info.len()-1).unwrap().1)+1;
+        if event_info.len() > 0 {
+          next_id        = (event_info.get(event_info.len()-1).unwrap().1)+1;
+        } else {
+          next_id        = 1;
+        }
       }
     }
-
+    //println!("{:?}, {}", last_chunk.as_ref().unwrap().id, next_id);
     (last_chunk, next_id)
   }
 
   pub fn add(&mut self, stream_name: &str, value: IndexElement) {
+    println!("Found stream {:?}", stream_name);
+
     let value_copy = value.clone();
 
     // Target specified stream first
@@ -94,8 +100,10 @@ impl Index {
       let vector = self.map.get_mut(stream_name).unwrap();
       vector.push(value);
     } else {
+      println!("Created {} stream", stream_name);
+      // First time creating a new stream
       let value = vec![value];
-      self.map.insert(stream_name.to_string(), value);      
+      self.map.insert(stream_name.to_string(), value);
     }
 
     // Everything also always gets put in the $all stream...
@@ -103,24 +111,17 @@ impl Index {
       let vector = self.map.get_mut("$all").unwrap();
       vector.push(value_copy);
     } else {
+      println!("Created $all stream");
       let value = vec![value_copy];
       self.map.insert("$all".to_string(), value);
     }
   }
 
   pub fn fetch_one(&mut self, stream_name: &str) -> &Vec<IndexElement> {
-    for key in self.map.keys() {
-      println!("{}", key);
-    }
-
     if self.map.contains_key(stream_name) == false {
       println!("Adding empty stream {}!", stream_name);
       let value : Vec<IndexElement> = vec![];
       self.map.insert(stream_name.to_string(), value);
-    }
-
-    for key in self.map.keys() {
-      println!("{}", key);
     }
 
     self.map.get(stream_name).unwrap()

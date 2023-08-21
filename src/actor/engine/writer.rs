@@ -2,7 +2,7 @@ use super::index::{Index, IndexElement};
 use super::chunk::LogChunk;
 use super::event::Event;
 
-#[derive(Clone)]
+
 pub struct Writer {
   wchunk  : LogChunk,
   next_id : u64

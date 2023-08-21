@@ -23,4 +23,5 @@ message ReadStreamRequest {
 
 message ReadStreamResponse {
   string event = 1;
+  uint64 stream_position = 2;
 }

@@ -52,13 +52,13 @@ impl Events for Api {
     -> Result<Response<Self::ReadStreamStream>, Status> {
       let ( tx, rx) = mpsc::channel(4);
 
-      let request = ReadStream{
+      let response = ReadStream{
         stream_name : request.get_ref().stream_name.clone(),
         stream_position : request.get_ref().stream_position,
         tx_channel  : tx
       };
 
-      let _ = self.actor_addr.send(request).await;
+      let _ = self.actor_addr.send(response).await;
 
       Ok(Response::new(ReceiverStream::new(rx)))
     }

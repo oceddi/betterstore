@@ -1,2 +1,4 @@
 /target
-/src/chunks
+/chunks
+.vscode
+.DS_Store

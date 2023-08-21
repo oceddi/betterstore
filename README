@@ -1,0 +1,40 @@
+Betterstore Notes:
+
+Start the server like this:
+
+  cargo run --bin server
+
+###############################
+
+Start the test client like this:
+
+  cargo run --bin client_test
+
+What does the client_test illustrate?
+
+Connects to server
+
+Picks a random stream from 3 options (test1, test2, test3)
+Builds a payload vector of 10 messages
+Appends those 10 messages to the stream
+
+Reads all events from test1 stream starting at offset 5
+and prints them out.
+
+Reads all events from test2 stream starting at offset 5
+and prints them out.
+
+Reads all events from test3 stream starting at offset 5
+and prints them out.
+
+#########################################
+
+Start the user_prompt client like this:
+
+cargo run --bin user_prompt
+
+What does this show/do?
+
+A new stream is created with a name corresponding to a date/timestamp.
+You can enter questions/input sentences.  After hitting return it will be inserted into the event log.  After you hit Ctrl-D the entire conversation will be echoed back to you.
+
