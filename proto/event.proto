@@ -16,6 +16,8 @@ message AppendToStreamResponse {
   string response = 1;
 }
 
+// stream_position is the 0-based position of an event within the named stream
+// (or within $all), in both requests and responses.
 message ReadStreamRequest {
   string stream_name = 1;
   uint64 stream_position = 2;

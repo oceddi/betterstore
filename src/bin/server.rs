@@ -28,21 +28,23 @@ impl Events for Api {
   // AppendToStream
   async fn append_to_stream(&self,  request: Request<AppendToStreamRequest>) 
     -> Result<Response<AppendToStreamResponse>, Status> {
-      let mut events = vec!["".to_string(); request.get_ref().events.len()];
-
-      // This is to setup ownership lifetime, both vectors must be equal size.
-      events.clone_from_slice(&request.get_ref().events);
+      let request = request.into_inner();
 
       let request = AppendToStream{
-        stream_name : request.get_ref().stream_name.clone(),
-        events      : events
+        stream_name : request.stream_name,
+        events      : request.events
       };
-      let _ = self.actor_addr.send(request).await;
 
-      let response = AppendToStreamResponse {
-        response : "success".to_string()
-      };
-      Ok(Response::new(response))
+      match self.actor_addr.send(request).await {
+        Ok(Ok(_)) => {
+          let response = AppendToStreamResponse {
+            response : "success".to_string()
+          };
+          Ok(Response::new(response))
+        }
+        Ok(Err(e)) => Err(Status::invalid_argument(e)),
+        Err(e) => Err(Status::internal(e.to_string()))
+      }
   }
 
   // ReadStream
@@ -58,7 +60,9 @@ impl Events for Api {
         tx_channel  : tx
       };
 
-      let _ = self.actor_addr.send(response).await;
+      self.actor_addr.send(response).await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .map_err(|_| Status::internal("Failed to start read"))?;
 
       Ok(Response::new(ReceiverStream::new(rx)))
     }

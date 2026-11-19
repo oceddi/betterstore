@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 use regex::Regex;
 use super::chunk::LogChunk;
 
@@ -24,45 +25,35 @@ impl Index {
 
   pub fn initialize(&mut self, dir_name: &str) -> (Option<LogChunk>, u64) {
     let mut last_chunk : Option<LogChunk> = None;
-    let mut highest_chunk_id : u32        = 0;
     let mut next_id    : u64              = 0;
-    let re                          = Regex::new(r"chunks/(\d+)\.chk").unwrap();
+    let re                          = Regex::new(r"^(\d+)\.chk$").unwrap();
 
     // Create chunks folder if not already there...
-    fs::create_dir(dir_name).ok();
+    fs::create_dir_all(dir_name).ok();
 
-    // Read all files from directory in array and sort case insensitive by filename chunk id.
-    let mut all_chunks = Vec::new();
-    for entry in fs::read_dir(dir_name).unwrap() {
-      all_chunks.push(entry);
-    }
-    all_chunks.sort_by(|a, b| {
-      let chunk_file_a = a.as_ref().unwrap();
-      let chunk_path_a   = chunk_file_a.path();
-      let chunk_path_str_a = chunk_path_a.to_str().unwrap();
-      let captures_a    = re.captures(chunk_path_str_a).unwrap();
-      let chunk_id_a        = captures_a.get(1).unwrap().as_str().parse::<u32>().unwrap();
-
-      let chunk_file_b = b.as_ref().unwrap();
-      let chunk_path_b   = chunk_file_b.path();
-      let chunk_path_str_b = chunk_path_b.to_str().unwrap();
-      let captures_b   = re.captures(chunk_path_str_b).unwrap();
-      let chunk_id_b       = captures_b.get(1).unwrap().as_str().parse::<u32>().unwrap();
-
-      chunk_id_a.cmp(&chunk_id_b)
-    });
+    // Collect every chunk file with its id, skipping anything else in the directory
+    // (e.g. .DS_Store), and sort by chunk id.
+    let mut all_chunks : Vec<(u32, PathBuf)> = fs::read_dir(dir_name).unwrap()
+      .filter_map(|entry| {
+        let path     = entry.ok()?.path();
+        let captures = re.captures(path.file_name()?.to_str()?)?;
+        let chunk_id = captures.get(1)?.as_str().parse::<u32>().ok()?;
+        Some((chunk_id, path))
+      })
+      .collect();
+    all_chunks.sort_by_key(|(chunk_id, _)| *chunk_id);
 
     // Enumerate sorted log chunk files and load into index
-    for entry in all_chunks.iter() {
-      let chunk_file = entry.as_ref().unwrap();
-      let chunk_path  = chunk_file.path();
-      let chunk_path_str= chunk_path.to_str().unwrap();
-      let captures   = re.captures(chunk_path_str).unwrap();
-      let chunk_id       = captures.get(1).unwrap().as_str().parse::<u32>().unwrap();
+    let chunk_count = all_chunks.len();
+    for (i, (chunk_id, chunk_path)) in all_chunks.into_iter().enumerate() {
+      let chunk_path_str = chunk_path.to_str().unwrap();
 
-      println!("Indexing: {:?} {:?}", chunk_file.path(), chunk_id);
+      println!("Indexing: {:?} {:?}", chunk_path, chunk_id);
 
-      let (log_chunk, event_info) = LogChunk::index(chunk_id, chunk_path_str);
+      // Only the write chunk (the last one) can be left mid-write by a crash; earlier chunks
+      // were fully committed when they rolled over.
+      let is_write_chunk = i == chunk_count - 1;
+      let (log_chunk, event_info) = LogChunk::index(chunk_id, chunk_path_str, is_write_chunk);
 
       for (i, (stream_name, _)) in event_info.iter().enumerate() {
         let index_element = IndexElement{
@@ -73,18 +64,14 @@ impl Index {
         self.add(stream_name, index_element);
       }
 
-      // Files come in random order so keep track of highest chunk id so we end up knowing
-      // last chunk (write chunk) and next_id
-      if chunk_id > highest_chunk_id {
-        highest_chunk_id = chunk_id;
-
-        last_chunk       = Some(log_chunk);
-        if event_info.len() > 0 {
-          next_id        = (event_info.get(event_info.len()-1).unwrap().1)+1;
-        } else {
-          next_id        = 1;
-        }
+      // Track next_id across all chunks, not just the last, since the last chunk can be
+      // empty (e.g. crash right after rollover).
+      if let Some((_, last_id)) = event_info.last() {
+        next_id = next_id.max(last_id + 1);
       }
+
+      // Chunks are sorted, so the final one is the write chunk.
+      last_chunk = Some(log_chunk);
     }
     //println!("{:?}, {}", last_chunk.as_ref().unwrap().id, next_id);
     (last_chunk, next_id)
@@ -117,13 +104,7 @@ impl Index {
     }
   }
 
-  pub fn fetch_one(&mut self, stream_name: &str) -> &Vec<IndexElement> {
-    if self.map.contains_key(stream_name) == false {
-      println!("Adding empty stream {}!", stream_name);
-      let value : Vec<IndexElement> = vec![];
-      self.map.insert(stream_name.to_string(), value);
-    }
-
-    self.map.get(stream_name).unwrap()
+  pub fn fetch_one(&self, stream_name: &str) -> &[IndexElement] {
+    self.map.get(stream_name).map_or(&[], |entries| entries.as_slice())
   }
 }
