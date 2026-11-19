@@ -1,3 +1,4 @@
+use log::info;
 use super::index::{Index, IndexElement};
 use super::chunk::LogChunk;
 use super::event::Event;
@@ -14,7 +15,7 @@ impl Writer {
 
     // Empty State?
     if wchunk_option.is_none() {
-      println!("Starting from Empty!");
+      info!("No chunks found in {}, starting an empty store", dir);
       wchunk_option = Some(LogChunk::new(1, LogChunk::path_for(dir, 1).as_str()));
     }
 
@@ -44,7 +45,7 @@ impl Writer {
       // Attempt to commit event to chunk only failing if chunk is full.
       let mut write_result = self.wchunk.attempt_to_write_event(event, i == events.len()-1);
       if write_result.is_err() {
-        println!("Chunk {} full!", self.wchunk.id);
+        info!("Chunk {} full, rolling over to chunk {}", self.wchunk.id, self.wchunk.id + 1);
         // Allocate another chunk file.
         let next_chunk_id = self.wchunk.id + 1;
         self.wchunk = LogChunk::new(next_chunk_id, LogChunk::path_for(&self.dir, next_chunk_id).as_str());

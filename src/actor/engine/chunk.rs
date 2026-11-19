@@ -1,8 +1,9 @@
-use std::fs::{self as fs, OpenOptions, File};
-use std::io::{self, Read};
+use std::fs::{OpenOptions, File};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::os::unix::prelude::FileExt;
 use std::path::Path;
 use chrono::Utc;
+use log::warn;
 use ring::digest::{Context, SHA256, SHA256_OUTPUT_LEN};
 use serde::{Serialize, Deserialize};
 use std::mem;
@@ -139,7 +140,7 @@ impl LogChunk {
       if !recover {
         panic!("Corrupt log chunk {}: shorter than its header", path);
       }
-      println!("Recovering {}: incomplete header, resetting to an empty chunk", path);
+      warn!("Recovering {}: incomplete header, resetting to an empty chunk", path);
       handle.set_len(0).expect("Failed to truncate LogChunk.");
       let context = Self::write_empty_header(&handle);
 
@@ -190,7 +191,7 @@ impl LogChunk {
       if !recover {
         panic!("Corrupt log chunk {}: {} uncommitted bytes in a sealed chunk", path, entire_file.len() - committed_len);
       }
-      println!(
+      warn!(
         "Recovering {}: discarding {} bytes ({} events) from an interrupted write",
         path, entire_file.len() - committed_len, events.len() - committed_events
       );
@@ -256,15 +257,19 @@ impl LogChunk {
   }
 
   pub fn stream_events_out(offset: u32, path: &str) -> Result<Vec<Event>, io::Error> {
-    let entire_file = fs::read(path)?;
+    // Only read from the requested offset onward rather than the whole chunk.
+    let mut file = File::open(path)?;
+    file.seek(SeekFrom::Start(offset as u64))?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)?;
 
-    let mut position = offset as usize;
+    let mut position = 0;
     let mut events   = Vec::new();
 
-    while position < entire_file.len() {
-      let (event, next) = Self::decode_at(&entire_file, position).map_err(|what| io::Error::new(
+    while position < data.len() {
+      let (event, next) = Self::decode_at(&data, position).map_err(|what| io::Error::new(
         io::ErrorKind::InvalidData,
-        format!("{} in {} at position {}", what, path, position)
+        format!("{} in {} at position {}", what, path, offset as usize + position)
       ))?;
 
       events.push(event);

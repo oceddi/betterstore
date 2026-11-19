@@ -1,9 +1,12 @@
+use std::time::Duration;
 use tonic::transport::Endpoint;
 use tonic::Request;
 
 use betterstore::api;
 use api::events_client::EventsClient;
 use api::ReadStreamRequest;
+
+const POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 /* Design Ideas: */
 /* Initialization:      */
@@ -41,7 +44,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       }
     );
     let mut response = client.read_stream(request).await?.into_inner();
+    let mut received = false;
     while let Some(res) = response.message().await? {
+      received = true;
 
       let words: Vec<String> = res.event.split_whitespace().map(|s| s.to_string()).collect();
 
@@ -53,6 +58,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       println!("adjectives: {:?}", adjective_indices);
 
       next_pos = res.stream_position + 1;
+    }
+
+    // Caught up: wait before polling again instead of spinning on the server.
+    if !received {
+      tokio::time::sleep(POLL_INTERVAL).await;
     }
   }
   //Ok(())

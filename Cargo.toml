@@ -17,17 +17,21 @@ name="client_test"
 path="./src/bin/client_test.rs"
 
 [dependencies]
-actix = "0.13.0"
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-stream = "0.1.8"
-tonic = "0.7.1"
-prost = "0.10.1"
-regex = "1.5.5"
+actix = "0.13.6"
+tokio = { version = "1.54", features = ["full"] }
+tokio-stream = "0.1.19"
+tonic = "0.14.9"
+tonic-prost = "0.14.9"
+prost = "0.14.6"
+regex = "1.13"
 serde = { version = "1.0", features = ["derive"] }
+# Stay on bincode 1.x: 2.x changes the encoding and would break existing chunk files.
 bincode = "1.3.3"
-chrono = "0.4.19"
-rand = "0.8.5"
-ring = "0.16.20"
+chrono = "0.4.45"
+rand = "0.10.4"
+ring = "0.17.14"
+log = "0.4.35"
+env_logger = "0.11.11"
 
 [build-dependencies]
-tonic-build = "0.7.0"
+tonic-prost-build = "0.14.9"

@@ -1,6 +1,7 @@
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 use actix::{Addr, Actor};
+use log::info;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -71,9 +72,12 @@ impl Events for Api {
 
 #[actix::main] 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Defaults to info; override with RUST_LOG (e.g. RUST_LOG=debug for per-stream detail).
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     let addr = "0.0.0.0:50051".parse()?;
 
-    println!("Starting betterstore server...");
+    info!("Starting betterstore server on {}", addr);
 
     // Our RPC API
     let better_store_actor = BetterStoreActor::new().start();

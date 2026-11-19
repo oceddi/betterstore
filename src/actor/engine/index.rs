@@ -1,23 +1,22 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use log::{debug, info};
 use regex::Regex;
 use super::chunk::LogChunk;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct IndexElement {
   pub chunk_number : u32,
   pub offset : u32
 }
 
-#[derive(Clone)]
 pub struct Index {
   map : HashMap<String, Vec<IndexElement>>
 }
 
 impl Index {
   pub fn new() -> Self {
-    println!("Creating new index/hashmap");
     Self{
       map : HashMap::new()
     }
@@ -48,7 +47,7 @@ impl Index {
     for (i, (chunk_id, chunk_path)) in all_chunks.into_iter().enumerate() {
       let chunk_path_str = chunk_path.to_str().unwrap();
 
-      println!("Indexing: {:?} {:?}", chunk_path, chunk_id);
+      debug!("Indexing chunk {} at {:?}", chunk_id, chunk_path);
 
       // Only the write chunk (the last one) can be left mid-write by a crash; earlier chunks
       // were fully committed when they rolled over.
@@ -73,34 +72,21 @@ impl Index {
       // Chunks are sorted, so the final one is the write chunk.
       last_chunk = Some(log_chunk);
     }
-    //println!("{:?}, {}", last_chunk.as_ref().unwrap().id, next_id);
+    info!("Indexed {} chunks, {} streams, next event id {}", chunk_count, self.map.len().saturating_sub(1), next_id);
     (last_chunk, next_id)
   }
 
   pub fn add(&mut self, stream_name: &str, value: IndexElement) {
-    println!("Found stream {:?}", stream_name);
-
-    let value_copy = value.clone();
-
-    // Target specified stream first
-    if self.map.contains_key(stream_name) {
-      let vector = self.map.get_mut(stream_name).unwrap();
-      vector.push(value);
-    } else {
-      println!("Created {} stream", stream_name);
-      // First time creating a new stream
-      let value = vec![value];
-      self.map.insert(stream_name.to_string(), value);
-    }
-
-    // Everything also always gets put in the $all stream...
-    if self.map.contains_key("$all") {
-      let vector = self.map.get_mut("$all").unwrap();
-      vector.push(value_copy);
-    } else {
-      println!("Created $all stream");
-      let value = vec![value_copy];
-      self.map.insert("$all".to_string(), value);
+    // Target specified stream first, then everything also always gets put in the $all stream.
+    // Look up before inserting so the common case doesn't allocate a key per event.
+    for name in [stream_name, "$all"] {
+      match self.map.get_mut(name) {
+        Some(entries) => entries.push(value),
+        None => {
+          debug!("Created {} stream", name);
+          self.map.insert(name.to_string(), vec![value]);
+        }
+      }
     }
   }
 

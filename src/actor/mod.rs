@@ -1,4 +1,5 @@
 use actix::{Actor, Context, Handler, Message, AsyncContext, fut::{wrap_future}};
+use log::info;
 use self::engine::Engine;
 use super::api::ReadStreamResponse;
 use tokio::sync::{mpsc::Sender};
@@ -44,11 +45,11 @@ impl Actor for BetterStoreActor {
   type Context = Context<Self>;
 
   fn started(&mut self, _ctx: &mut Context<Self>) {
-    println!("BetterStoreActor is started!");
+    info!("BetterStoreActor is started!");
   }
 
   fn stopped(&mut self, _ctx: &mut Context<Self>) {
-    println!("BetterStoreActor is stopped!");
+    info!("BetterStoreActor is stopped!");
   }
 }
 

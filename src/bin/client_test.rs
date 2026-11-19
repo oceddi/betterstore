@@ -4,18 +4,16 @@ use tonic::Request;
 use betterstore::api;
 use api::events_client::EventsClient;
 use api::{AppendToStreamRequest, ReadStreamRequest};
-use rand::Rng;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = Endpoint::from_static("http://127.0.0.1:50051");
     
     let mut client  = EventsClient::connect(addr).await?;
-    let mut rng = rand::thread_rng();
     let stream_names = vec!["test1", "test2", "test3"];
 
     for i in 0..1 {
-        let stream_name = stream_names[rng.gen_range(0..3)];
+        let stream_name = stream_names[rand::random_range(0..stream_names.len())];
 
         let mut event_vec = vec![];
         for j in 0..10 {

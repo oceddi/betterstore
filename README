@@ -4,6 +4,9 @@ Start the server like this:
 
   cargo run --bin server
 
+Chunk files are stored in ./chunks relative to the working directory.
+Logging defaults to info; set RUST_LOG=debug for per-chunk and per-stream detail.
+
 ###############################
 
 Start the test client like this:
